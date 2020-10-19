@@ -1,70 +1,51 @@
 import { APIGatewayEvent } from 'aws-lambda'
-import request, { CoreOptions, Response } from 'request'
+import Web3 from 'web3'
+import { HttpProvider } from 'web3-core'
 
-interface OrderReservationRequest {
-  referrerAccountId: string,
-  lockFields: string[]
-  amount?: number,
-  sourceCurrency?: string,
-  destCurrency?: string,
-  email: string,
-  dest?: string,
-  givenName?: string,
-  familyName?: string,
-  city?: string,
-  phone?: string,
-  street1?: string,
-  country?: string,
-  redirectUrl?: string,
-  failureRedirectUrl?: string,
-  paymentMethod?: string,
-  state?: string,
-  postalCode?: string
+import { Utils } from './utils/utils'
+
+const registrarAddress = process.env.ETH_REIGSTRAR_CONTROLLER ?? '0xe7410170f87102DF0055eB195163A03B7F2Bff4A'
+
+interface ENSGSNRequest {
+  domain: string,
+  buyer: string
 }
 
 export async function handler (
   event: APIGatewayEvent
 ) {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method Not Allowed' }
+  }
   if (event.body == null || event.body.length === 0) {
     return { statusCode: 400, body: 'Empty Request Body' }
   }
-  const orderReservationRequest: OrderReservationRequest = JSON.parse(event.body)
+  const ensGsnRequest: ENSGSNRequest = JSON.parse(event.body)
+  const nodeUrl = process.env.NODE_URL ?? 'https://rinkeby.infura.io/v3/f40be2b1a3914db682491dc62a19ad43'
+  const utils = new Utils(new Web3(new HttpProvider(nodeUrl)), registrarAddress)
 
-  const promise = new Promise((resolve, reject) => {
-    const callback = function (error: any, response: Response, body: any): void {
-      console.log('resolved', response.statusCode, body)
-      if (response.statusCode === 200) {
-        resolve(body)
-      } else {
-        reject(body)
-      }
-      return
+  const isDomainAvailable = await utils.recordExists(ensGsnRequest.domain)
+  if (!isDomainAvailable) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({
+        error: `Domain name ${ensGsnRequest.domain} is already registered`
+      })
     }
-    let wyreSecretKey = process.env.WYRE_SECRET_KEY
-    let options: CoreOptions = {
-      json: true,
-      headers: {
-        'Authorization': `Bearer ${wyreSecretKey}`
-      }
-    }
-    const uri = process.env.WYRE_RESERVE_URL ?? 'https://api.testwyre.com/v3/orders/reserve'
-    const httpReservationRequest = request.post(uri, options, callback)
-    httpReservationRequest.on('error', function (error: Error) {
-      console.log('rejected')
-      reject(error)
-    })
-    httpReservationRequest.write(JSON.stringify(orderReservationRequest))
-    httpReservationRequest.end()
-  })
+  }
+
   const responseHeaders = {
     'Access-Control-Allow-Origin': '*'
   }
   try {
-    let response = await promise
+    const { response, referenceId } = await utils.createReservation(ensGsnRequest.buyer, ensGsnRequest.domain)
     return {
       statusCode: 200,
       headers: responseHeaders,
-      body: JSON.stringify(response)
+      body: {
+        wyreResponse: JSON.stringify(response),
+        referenceId
+      }
     }
   } catch (error) {
     console.log(error)

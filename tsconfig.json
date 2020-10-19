@@ -25,6 +25,7 @@
     ],
     "types": [
       "node",
+      "mocha",
       "truffle-contracts",
       "openzeppelin__test-helpers",
       "ganache-core",
