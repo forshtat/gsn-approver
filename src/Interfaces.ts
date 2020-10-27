@@ -1,3 +1,5 @@
+import RelayRequest from '@opengsn/gsn/dist/src/common/EIP712/RelayRequest'
+
 export interface WyreOrderReservationRequest {
   dest: string,
   amount: number,
@@ -50,3 +52,15 @@ export interface GsnPaymentDetails {
 }
 
 export type WyrePaymentRequest = GsnConstPaymentDetails & GsnUserDetails & GsnPaymentDetails & WyrePaymentIds
+
+export interface ApproveRequest {
+  relayRequest: RelayRequest,
+  domain: string,
+  referenceId: string,
+  orderId: string
+}
+
+export interface ENSGSNRequest {
+  domain: string,
+  buyer: string
+}

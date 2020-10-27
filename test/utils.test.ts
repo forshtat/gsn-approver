@@ -3,24 +3,29 @@ import RelayRequest from '@opengsn/gsn/dist/src/common/EIP712/RelayRequest'
 
 import ETHRegsitrarController from './ETHRegsitrarController.json'
 
-import { Utils } from '../src/utils/utils'
+import { ApproverLogic } from '../src/ApproverLogic'
 import assert from 'assert'
 import {
   GsnPaymentDetails,
   GsnUserDetails,
   WyrePaymentIds
-} from '../src/utils/WyreTypes'
+} from '../src/Interfaces'
+import { LowdbSync } from 'lowdb'
 
 const nodeUrl = 'https://rinkeby.infura.io/v3/f40be2b1a3914db682491dc62a19ad43'
 const newDomain = 'please-do-not-register-this-domain.eth'
+const stubDb = {
+  write: function () {
+  }
+} as LowdbSync<any>
 
 describe('checkDomainNameAvailable', function () {
   let web3: Web3
-  let utils: Utils
+  let utils: ApproverLogic
 
   before(function () {
     web3 = new Web3(nodeUrl)
-    utils = new Utils(web3, '')
+    utils = new ApproverLogic(web3, stubDb, '')
   })
 
   it('should return true if address registered', async function () {
@@ -40,18 +45,18 @@ describe('paymentDone', function () {
   const buyer: string = '0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1'
   const referenceId: string = `${buyer}:${domain}:${Date.now()}`
 
-  let utils: Utils
+  let utils: ApproverLogic
   before(function () {
-    utils = new Utils({} as Web3, '')
+    utils = new ApproverLogic({} as Web3, stubDb, '')
   })
 
   it('should return false if domain info does not match the referenceId', async function () {
-    const res = await utils.paymentDone(reservation, `${buyer}:wrong-domain.eth:${Date.now()}`, domain, buyer)
+    const res = await utils.verifyPayment(reservation, `${buyer}:wrong-domain.eth:${Date.now()}`, domain, buyer)
     assert.strictEqual(res, false)
   })
 
   it('should return false if payment for domain not done', async function () {
-    const res = await utils.paymentDone(reservation, referenceId, domain, buyer)
+    const res = await utils.verifyPayment(reservation, referenceId, domain, buyer)
     assert.strictEqual(res, false)
   })
 
@@ -98,7 +103,7 @@ describe('paymentDone', function () {
     })
 
     it('should return true if payment for domain was made', async function () {
-      const res = await utils.paymentDone(orderId, referenceId, domain, buyer)
+      const res = await utils.verifyPayment(orderId, referenceId, domain, buyer)
       assert.strictEqual(res, true)
     })
   })
@@ -109,12 +114,12 @@ describe('verifyRequestData', function () {
   const buyer = '0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1'
   let relayRequest: RelayRequest
   let web3: Web3
-  let utils: Utils
+  let utils: ApproverLogic
   let data: string
 
   before(function () {
     web3 = new Web3(nodeUrl)
-    utils = new Utils(web3, registrarAddress)
+    utils = new ApproverLogic(web3, stubDb, registrarAddress)
     // @ts-ignore
     const registrar = new web3.eth.Contract(ETHRegsitrarController.abi)
     data = registrar.methods.register(newDomain, buyer, 0, '0x0000000000000000000000000000000000000000000000000000000000000000').encodeABI()

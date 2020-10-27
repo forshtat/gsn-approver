@@ -4,3 +4,4 @@
 /.idea/
 /lambda/
 .DS_Store
+/db.json
